@@ -46,7 +46,12 @@ int findLED(int pos);
 void myfract();
 void fract(CRGB c1, CRGB c2, int wait);
 void fract_segments(CRGB c1,CRGB c2,int segment_size, int wait);
-void rando();
+void rando();//BE - alternate pods between two colors
+void ants(CRGB c1, CRGB c2);
+void myants();
+
+CRGB global_fg = CRGB::Red;
+CRGB global_bg = CRGB::Blue;
 
 
 void setup() {
@@ -66,7 +71,7 @@ void setup() {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { rando, myfract, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe };
+SimplePatternList gPatterns = { myants, myfract, rando, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -97,6 +102,8 @@ void loop()
 
 void nextPattern()
 {
+  global_fg = CRGB(random(255),random(255),random(255));
+  global_bg = CRGB(random(255),random(255),random(255));
   // add one to the current pattern number, and wrap around at the end
   gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
 }
@@ -107,7 +114,12 @@ void rando(){
 }
 
 void myfract(){
-  fract(CRGB::Red,CRGB::Blue,500);
+  fract(global_fg,global_bg,500);
+}
+
+
+void myants(){
+  ants(global_fg,global_bg);
 }
 
 void wipe()
@@ -123,6 +135,31 @@ void wipe()
   FastLED.show();
 }
 
+//BE - alternate pods between two colors
+void ants(CRGB c1, CRGB c2){
+  int i;
+  for(i=0; i< NUM_LEDS; i++)
+  {
+    if(ds_pod % 2)
+    {     
+      if(i % 2)
+      {
+        leds[findLED(i)] = c1;
+      }else{
+        leds[findLED(i)] = c2;
+      }
+    }else{
+      if((i+1) % 2)
+      {
+        leds[findLED(i)] = c1;
+      }else{
+        leds[findLED(i)] = c2;
+      }
+    }
+  }
+  FastLED.show();
+}
+
 int findLED(int pos)
 {
   //we want the first half of the ring to be normal, and the second half of the ring to be the distance from the end of the strip.
@@ -135,7 +172,6 @@ int findLED(int pos)
   return NUM_LEDS - (pos - NUM_LEDS_LEFT);
   
 }
-
 
 void fract(CRGB c1, CRGB c2, int wait)
 {
@@ -176,8 +212,6 @@ void fract_segments(CRGB c1,CRGB c2,int segment_size, int wait)
     wait = wait * .9;        
   }
 }
-
-
 
 void rainbow() 
 {
