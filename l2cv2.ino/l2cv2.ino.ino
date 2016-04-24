@@ -1,0 +1,230 @@
+#include "FastLED.h"
+
+FASTLED_USING_NAMESPACE
+
+// FastLED "100-lines-of-code" demo reel, showing just a few 
+// of the kinds of animation patterns you can quickly and easily 
+// compose using FastLED.  
+//
+// This example also shows one easy way to define multiple 
+// animations patterns and have them automatically rotate.
+//
+// -Mark Kriegsman, December 2014
+
+#if FASTLED_VERSION < 3001000
+#warning "Requires FastLED 3.1 or later; check github for latest code."
+#endif
+
+#define DATA_PIN_LEFT 5
+#define DATA_PIN_RIGHT 6
+//#define CLK_PIN   4
+#define LED_TYPE    WS2811
+#define COLOR_ORDER GRB
+#define NUM_LEDS_LEFT    70
+#define NUM_LEDS_RIGHT   70
+#define NUM_LEDS 140
+CRGB leds[NUM_LEDS];
+
+#define BRIGHTNESS          180
+#define FRAMES_PER_SECOND  120
+
+void ChangePalettePeriodically();
+void FillLEDsFromPaletteColors( uint8_t colorIndex);
+void SetupPurpleAndGreenPalette();
+void SetupBlackAndWhiteStripedPalette();
+void SetupTotallyRandomPalette();
+void rainbow();
+void rainbowWithGlitter();
+void wipe();
+void confetti();
+void sinelon();
+void juggle();
+void bpm();
+void nextPattern();
+void addGlitter( fract8 chanceOfGlitter);
+int findLED(int pos);
+void myfract();
+void fract(CRGB c1, CRGB c2, int wait);
+void fract_segments(CRGB c1,CRGB c2,int segment_size, int wait);
+
+
+void setup() {
+  delay(3000); // 3 second delay for recovery
+  
+  // tell FastLED about the LED strip configuration
+  FastLED.addLeds<LED_TYPE,DATA_PIN_LEFT,COLOR_ORDER>(leds, NUM_LEDS_LEFT).setCorrection(TypicalLEDStrip);
+  FastLED.addLeds<LED_TYPE,DATA_PIN_RIGHT,COLOR_ORDER>(leds, NUM_LEDS_LEFT, NUM_LEDS_RIGHT).setCorrection(TypicalLEDStrip);
+  //FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+
+  // set master brightness control
+  FastLED.setBrightness(BRIGHTNESS);
+}
+
+
+// List of patterns to cycle through.  Each is defined as a separate function below.
+typedef void (*SimplePatternList[])();
+SimplePatternList gPatterns = { confetti, myfract, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe };
+
+uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
+uint8_t gHue = 0; // rotating "base color" used by many of the patterns
+int cs_pod = 0;
+int ds_pod = 0;
+int s_pod = 0;
+  
+void loop()
+{
+  
+  // Call the current pattern function once, updating the 'leds' array
+  gPatterns[gCurrentPatternNumber]();
+
+  // send the 'leds' array out to the actual LED strip
+  FastLED.show();  
+  // insert a delay to keep the framerate modest
+  FastLED.delay(1000/FRAMES_PER_SECOND); 
+
+  // do some periodic updates
+  EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
+  EVERY_N_MILLISECONDS( 10 ) { cs_pod++; if(cs_pod > NUM_LEDS) cs_pod = 0;} //increment the cs_pod every 10 ms with wrap
+  EVERY_N_MILLISECONDS( 100 ) { ds_pod++; if(ds_pod > NUM_LEDS) ds_pod = 0;} //increment the ds_pod every 100 ms with wrap
+  EVERY_N_SECONDS( 1 ) { s_pod++; if(s_pod > NUM_LEDS) s_pod = 0;} //see above two lines.
+  EVERY_N_SECONDS( 10 ) { nextPattern(); } // change patterns periodically
+}
+
+#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
+
+void nextPattern()
+{
+  // add one to the current pattern number, and wrap around at the end
+  gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
+}
+
+void myfract(){
+  fract(CRGB::Red,CRGB::Blue,150);
+}
+
+void wipe()
+{
+  CRGB bg = CRGB::Red;
+  CRGB fg = CRGB::Blue;
+  for(int x=0;x<ds_pod;x++)
+  {
+    leds[findLED(x)] = bg;
+  }
+  FastLED.show();
+  leds[findLED(ds_pod)] = fg;
+  FastLED.show();
+}
+
+int findLED(int pos)
+{
+  //we want the first half of the ring to be normal, and the second half of the ring to be the distance from the end of the strip.
+  //this flips the second half of the ring so that transitions from segment to segment are clean.
+
+  //return pos;
+  if(pos < NUM_LEDS_LEFT)
+    return pos;
+  
+  return NUM_LEDS - (pos - NUM_LEDS_LEFT);
+  
+}
+
+
+void fract(CRGB c1, CRGB c2, int wait)
+{
+  fract_segments(c1,c2,70,wait);
+  fract_segments(c1,c2,35,wait);
+  fract_segments(c1,c2,17,wait);
+  fract_segments(c1,c2,10,wait);  
+  fract_segments(c1,c2,5,wait);  
+  fract_segments(c1,c2,2,wait);
+  fract_segments(c1,c2,1,wait);
+}
+
+void fract_segments(CRGB c1,CRGB c2,int segment_size, int wait)
+{
+  for(int j=1;j<100;j++)
+  {
+    CRGB c;
+    int switcher_count = 0;
+    for(int i=0;i<NUM_LEDS;i++)
+    {
+      if(j%2)
+      {
+        leds[findLED(i)] = c1;
+      }else{
+        leds[findLED(i)] = c2;
+      }
+      switcher_count++;
+      if(switcher_count == segment_size)
+      {
+        switcher_count = 0;
+        c = c1;
+        c1 = c2;
+        c2 = c;
+      }      
+    }
+    FastLED.show();
+    delay(wait);  
+    wait = wait * .98;        
+  }
+}
+
+
+
+void rainbow() 
+{
+  // FastLED's built-in rainbow generator
+  fill_rainbow( leds, NUM_LEDS, gHue, 7);
+}
+
+void rainbowWithGlitter() 
+{
+  // built-in FastLED rainbow, plus some random sparkly glitter
+  rainbow();
+  addGlitter(80);
+}
+
+void addGlitter( fract8 chanceOfGlitter) 
+{
+  if( random8() < chanceOfGlitter) {
+    leds[ random16(NUM_LEDS) ] += CRGB::White;
+  }
+}
+
+void confetti() 
+{
+  // random colored speckles that blink in and fade smoothly
+  fadeToBlackBy( leds, NUM_LEDS, 10);
+  int pos = random16(NUM_LEDS);
+  leds[pos] += CHSV( gHue + random8(64), 200, 255);
+}
+
+void sinelon()
+{
+  // a colored dot sweeping back and forth, with fading trails
+  fadeToBlackBy( leds, NUM_LEDS, 20);
+  int pos = beatsin16(13,0,NUM_LEDS);
+  leds[pos] += CHSV( gHue, 255, 192);
+}
+
+void bpm()
+{
+  // colored stripes pulsing at a defined Beats-Per-Minute (BPM)
+  uint8_t BeatsPerMinute = 62;
+  CRGBPalette16 palette = PartyColors_p;
+  uint8_t beat = beatsin8( BeatsPerMinute, 64, 255);
+  for( int i = 0; i < NUM_LEDS; i++) { //9948
+    leds[i] = ColorFromPalette(palette, gHue+(i*2), beat-gHue+(i*10));
+  }
+}
+
+void juggle() {
+  // eight colored dots, weaving in and out of sync with each other
+  fadeToBlackBy( leds, NUM_LEDS, 20);
+  byte dothue = 0;
+  for( int i = 0; i < 8; i++) {
+    leds[beatsin16(i+7,0,NUM_LEDS)] |= CHSV(dothue, 200, 255);
+    dothue += 32;
+  }
+}
+
