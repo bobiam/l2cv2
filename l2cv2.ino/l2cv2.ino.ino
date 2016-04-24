@@ -25,7 +25,7 @@ FASTLED_USING_NAMESPACE
 #define NUM_LEDS 140
 CRGB leds[NUM_LEDS];
 
-#define BRIGHTNESS          180
+#define BRIGHTNESS          255
 #define FRAMES_PER_SECOND  120
 
 void ChangePalettePeriodically();
@@ -46,6 +46,7 @@ int findLED(int pos);
 void myfract();
 void fract(CRGB c1, CRGB c2, int wait);
 void fract_segments(CRGB c1,CRGB c2,int segment_size, int wait);
+void rando();
 
 
 void setup() {
@@ -58,12 +59,14 @@ void setup() {
 
   // set master brightness control
   FastLED.setBrightness(BRIGHTNESS);
+
+  randomSeed(analogRead(0));
 }
 
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { confetti, myfract, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe };
+SimplePatternList gPatterns = { rando, myfract, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -98,8 +101,13 @@ void nextPattern()
   gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
 }
 
+void rando(){
+  leds[random(NUM_LEDS)] = CRGB(random(255),random(255),random(255));
+  FastLED.show();
+}
+
 void myfract(){
-  fract(CRGB::Red,CRGB::Blue,150);
+  fract(CRGB::Red,CRGB::Blue,500);
 }
 
 void wipe()
@@ -165,7 +173,7 @@ void fract_segments(CRGB c1,CRGB c2,int segment_size, int wait)
     }
     FastLED.show();
     delay(wait);  
-    wait = wait * .98;        
+    wait = wait * .9;        
   }
 }
 
