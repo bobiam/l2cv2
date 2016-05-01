@@ -19,10 +19,13 @@ FASTLED_USING_NAMESPACE
 #define DATA_PIN_RIGHT 6
 //#define CLK_PIN   4
 #define LED_TYPE    WS2811
-#define COLOR_ORDER GRB
+#define COLOR_ORDER_LEFT GRB
+#define COLOR_ORDER_RIGHT GRB
 #define NUM_LEDS_LEFT    70
-#define NUM_LEDS_RIGHT   70
+#define NUM_LEDS_RIGHT   65
 #define NUM_LEDS 140
+#define PX_PER_BOARD 6
+
 CRGB leds[NUM_LEDS];
 
 #define BRIGHTNESS          255
@@ -43,23 +46,32 @@ void bpm();
 void nextPattern();
 void addGlitter( fract8 chanceOfGlitter);
 int findLED(int pos);
-void myfract();
-void fract(CRGB c1, CRGB c2, int wait);
+void fract();
 void fract_segments(CRGB c1,CRGB c2,int segment_size, int wait);
-void rando();//BE - alternate pods between two colors
-void ants(CRGB c1, CRGB c2);
-void myants();
+void randPods();
+void ants();
+void randBlocks();
+void all(CRGB all_c);
 
 CRGB global_fg = CRGB::Red;
 CRGB global_bg = CRGB::Blue;
+CRGB global_length = 6;
+CRGB global_wait = 1000;
+
+//TODO = function to receive serial from Pi and update:
+// - global_ colors and parameters above
+// - next Pattern in gPatterns
+// Then call nextPattern() to trigger it.  
+// this means that there's always a queue for unattended use, using random params, 
+// but if someone changes it we'll let them drive it.
 
 
 void setup() {
   delay(3000); // 3 second delay for recovery
   
   // tell FastLED about the LED strip configuration
-  FastLED.addLeds<LED_TYPE,DATA_PIN_LEFT,COLOR_ORDER>(leds, NUM_LEDS_LEFT).setCorrection(TypicalLEDStrip);
-  FastLED.addLeds<LED_TYPE,DATA_PIN_RIGHT,COLOR_ORDER>(leds, NUM_LEDS_LEFT, NUM_LEDS_RIGHT).setCorrection(TypicalLEDStrip);
+  FastLED.addLeds<LED_TYPE,DATA_PIN_LEFT,COLOR_ORDER_LEFT>(leds, NUM_LEDS_LEFT).setCorrection(TypicalLEDStrip);
+  FastLED.addLeds<LED_TYPE,DATA_PIN_RIGHT,COLOR_ORDER_RIGHT>(leds, NUM_LEDS_LEFT, NUM_LEDS_RIGHT).setCorrection(TypicalLEDStrip);
   //FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
   // set master brightness control
@@ -71,7 +83,7 @@ void setup() {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { myants, myfract, rando, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe };
+SimplePatternList gPatterns = { randBlocks, ants, fract, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -87,56 +99,65 @@ void loop()
 
   // send the 'leds' array out to the actual LED strip
   FastLED.show();  
-  // insert a delay to keep the framerate modest
-  FastLED.delay(1000/FRAMES_PER_SECOND); 
+  
+  //FastLED.delay(1000/FRAMES_PER_SECOND); 
+  FastLED.delay(global_wait);
 
   // do some periodic updates
   EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
   EVERY_N_MILLISECONDS( 10 ) { cs_pod++; if(cs_pod > NUM_LEDS) cs_pod = 0;} //increment the cs_pod every 10 ms with wrap
   EVERY_N_MILLISECONDS( 100 ) { ds_pod++; if(ds_pod > NUM_LEDS) ds_pod = 0;} //increment the ds_pod every 100 ms with wrap
   EVERY_N_SECONDS( 1 ) { s_pod++; if(s_pod > NUM_LEDS) s_pod = 0;} //see above two lines.
-  EVERY_N_SECONDS( 10 ) { nextPattern(); } // change patterns periodically
+  EVERY_N_SECONDS( 20 ) { nextPattern(); } // change patterns periodically
 }
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
 void nextPattern()
 {
-  global_fg = CRGB(random(255),random(255),random(255));
-  global_bg = CRGB(random(255),random(255),random(255));
+  if(random(2))
+  {
+    global_fg = CRGB(random(255),random(255),random(255));
+    global_bg = CRGB(random(255),random(255),random(255));
+    global_length = random(NUM_LEDS);
+    global_wait = random(1000);
+  }
   // add one to the current pattern number, and wrap around at the end
   gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
 }
 
-void rando(){
+void randPods(){
   leds[random(NUM_LEDS)] = CRGB(random(255),random(255),random(255));
-  FastLED.show();
 }
 
-void myfract(){
-  fract(global_fg,global_bg,500);
-}
-
-
-void myants(){
-  ants(global_fg,global_bg);
+void randBlocks(){
+  CRGB block_c = CRGB(random(255),random(255),random(255));
+  for(int i=0;i<NUM_LEDS;i++)
+  {
+    if(i % PX_PER_BOARD == 0)
+      block_c = CRGB(random(255),random(255),random(255));
+    leds[i] = block_c;
+  }
 }
 
 void wipe()
 {
-  CRGB bg = CRGB::Red;
-  CRGB fg = CRGB::Blue;
   for(int x=0;x<ds_pod;x++)
   {
-    leds[findLED(x)] = bg;
+    leds[findLED(x)] = global_bg;
   }
-  FastLED.show();
-  leds[findLED(ds_pod)] = fg;
-  FastLED.show();
+  leds[findLED(ds_pod)] = global_fg;
+}
+
+void all(CRGB all_c){
+  for(int i=0;i<NUM_LEDS;i++)
+  {
+    leds[i] = all_c;
+  }
 }
 
 //BE - alternate pods between two colors
-void ants(CRGB c1, CRGB c2){
+void ants(){
   int i;
   for(i=0; i< NUM_LEDS; i++)
   {
@@ -144,20 +165,19 @@ void ants(CRGB c1, CRGB c2){
     {     
       if(i % 2)
       {
-        leds[findLED(i)] = c1;
+        leds[findLED(i)] = global_fg;
       }else{
-        leds[findLED(i)] = c2;
+        leds[findLED(i)] = global_bg;
       }
     }else{
       if((i+1) % 2)
       {
-        leds[findLED(i)] = c1;
+        leds[findLED(i)] = global_fg;
       }else{
-        leds[findLED(i)] = c2;
+        leds[findLED(i)] = global_bg;
       }
     }
   }
-  FastLED.show();
 }
 
 int findLED(int pos)
@@ -173,8 +193,13 @@ int findLED(int pos)
   
 }
 
-void fract(CRGB c1, CRGB c2, int wait)
+void fract()
 {
+  CRGB c1, c2;
+  int wait;
+  c1 = global_fg;
+  c2 = global_bg;
+  wait = 500;
   fract_segments(c1,c2,70,wait);
   fract_segments(c1,c2,35,wait);
   fract_segments(c1,c2,17,wait);
