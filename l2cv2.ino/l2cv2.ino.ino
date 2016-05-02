@@ -85,7 +85,7 @@ void setup() {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { ants, chase, randBlocks, fract, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe };
+SimplePatternList gPatterns = { ants, chase, randBlocks, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe, fract };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -136,7 +136,6 @@ void loop()
           Serial.println("Did not understand command");
           break;
       }
-      global_wait += Serial.read();
     }
     
     //Serial.println(global_wait);
@@ -147,13 +146,13 @@ void loop()
   // send the 'leds' array out to the actual LED strip
   FastLED.show();  
   
-  //FastLED.delay(1000/FRAMES_PER_SECOND); 
+  FastLED.delay(global_wait); 
 
   // do some periodic updates
   EVERY_N_MILLISECONDS( global_wait) { gw_pod++; if(gw_pod > NUM_LEDS) gw_pod = 0;} //advance the global wait pod with wrap
   EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
   EVERY_N_SECONDS( 1 ) { s_pod++; if(s_pod > NUM_LEDS) s_pod = 0;} //used for pod that advances once per second.
-  EVERY_N_SECONDS( 60 ) { nextPattern(); } // change patterns periodically
+  EVERY_N_SECONDS( 30 ) { nextPattern(); } // change patterns periodically
 }
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
