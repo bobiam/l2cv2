@@ -52,11 +52,12 @@ void randPods();
 void ants();
 void randBlocks();
 void all(CRGB all_c);
+void chase();
 
-CRGB global_fg = CRGB::Red;
+CRGB global_fg = CRGB::Green;
 CRGB global_bg = CRGB::Blue;
 CRGB global_length = 6;
-CRGB global_wait = 1000;
+int global_wait = 1000;
 
 //TODO = function to receive serial from Pi and update:
 // - global_ colors and parameters above
@@ -67,6 +68,7 @@ CRGB global_wait = 1000;
 
 
 void setup() {
+  Serial.begin(9600);
   delay(3000); // 3 second delay for recovery
   
   // tell FastLED about the LED strip configuration
@@ -83,17 +85,62 @@ void setup() {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { randBlocks, ants, fract, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe };
+SimplePatternList gPatterns = { ants, chase, randBlocks, fract, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
-int cs_pod = 0;
-int ds_pod = 0;
+int gw_pod = 0;
 int s_pod = 0;
+char do_what;
   
 void loop()
 {
-  
+  if(Serial.available())
+  {
+    while(Serial.available())
+    {
+      do_what = Serial.read();
+      switch(do_what){
+        //w = wait
+        case 'w':
+          global_wait = Serial.parseInt();
+          Serial.print("Updated wait to ");
+          Serial.println(global_wait);
+          break;
+       //fg = foreground color 
+        case 'f':
+          global_fg = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
+          Serial.print("Updated fg to ");
+          Serial.println(global_fg);          
+          break;
+        //bg = background color 
+        case 'b':
+          global_bg = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
+          Serial.print("Updated bg to ");
+          Serial.println(global_bg);          
+          break;
+        case 'p':
+          Serial.println("Advancing to next pattern");          
+          nextPattern();
+          break;         
+        case 'd':
+          Serial.println("Current values are:");
+          Serial.print("global_wait = ");
+          Serial.println(global_wait); 
+          Serial.print("global_fg = ");
+          Serial.println(global_fg); 
+          Serial.print("global_bg = ");
+          Serial.println(global_bg); 
+          break;
+        default:
+          Serial.println("Did not understand command");
+          break;
+      }
+      global_wait += Serial.read();
+    }
+    
+    //Serial.println(global_wait);
+  }
   // Call the current pattern function once, updating the 'leds' array
   gPatterns[gCurrentPatternNumber]();
 
@@ -101,29 +148,39 @@ void loop()
   FastLED.show();  
   
   //FastLED.delay(1000/FRAMES_PER_SECOND); 
-  FastLED.delay(global_wait);
 
   // do some periodic updates
+  EVERY_N_MILLISECONDS( global_wait) { gw_pod++; if(gw_pod > NUM_LEDS) gw_pod = 0;} //advance the global wait pod with wrap
   EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
-  EVERY_N_MILLISECONDS( 10 ) { cs_pod++; if(cs_pod > NUM_LEDS) cs_pod = 0;} //increment the cs_pod every 10 ms with wrap
-  EVERY_N_MILLISECONDS( 100 ) { ds_pod++; if(ds_pod > NUM_LEDS) ds_pod = 0;} //increment the ds_pod every 100 ms with wrap
-  EVERY_N_SECONDS( 1 ) { s_pod++; if(s_pod > NUM_LEDS) s_pod = 0;} //see above two lines.
-  EVERY_N_SECONDS( 20 ) { nextPattern(); } // change patterns periodically
+  EVERY_N_SECONDS( 1 ) { s_pod++; if(s_pod > NUM_LEDS) s_pod = 0;} //used for pod that advances once per second.
+  EVERY_N_SECONDS( 60 ) { nextPattern(); } // change patterns periodically
 }
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
 void nextPattern()
 {
-  if(random(2))
+  if(random(20) == 1)
   {
     global_fg = CRGB(random(255),random(255),random(255));
     global_bg = CRGB(random(255),random(255),random(255));
     global_length = random(NUM_LEDS);
     global_wait = random(1000);
   }
+  Serial.println("Current values are:");
+  Serial.print("global_wait = ");
+  Serial.println(global_wait); 
+  Serial.print("global_fg = ");
+  Serial.println(global_fg); 
+  Serial.print("global_bg = ");
+  Serial.println(global_bg); 
   // add one to the current pattern number, and wrap around at the end
   gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
+}
+
+void chase(){
+  all(global_bg);
+  leds[findLED(gw_pod)] = global_fg;
 }
 
 void randPods(){
@@ -142,11 +199,11 @@ void randBlocks(){
 
 void wipe()
 {
-  for(int x=0;x<ds_pod;x++)
+  for(int x=0;x<gw_pod;x++)
   {
     leds[findLED(x)] = global_bg;
   }
-  leds[findLED(ds_pod)] = global_fg;
+  leds[findLED(gw_pod)] = global_fg;
 }
 
 void all(CRGB all_c){
@@ -161,7 +218,7 @@ void ants(){
   int i;
   for(i=0; i< NUM_LEDS; i++)
   {
-    if(ds_pod % 2)
+    if(gw_pod % 2)
     {     
       if(i % 2)
       {
