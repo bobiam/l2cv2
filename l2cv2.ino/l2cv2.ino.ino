@@ -2,14 +2,8 @@
 
 FASTLED_USING_NAMESPACE
 
-// FastLED "100-lines-of-code" demo reel, showing just a few 
-// of the kinds of animation patterns you can quickly and easily 
-// compose using FastLED.  
-//
-// This example also shows one easy way to define multiple 
-// animations patterns and have them automatically rotate.
-//
-// -Mark Kriegsman, December 2014
+// developed for use with L2Cv2 for Maker Faire 2016.
+// with many thanks to Mark Kriegsman's demoreel 100 which provided the basic concepts and some of the initial patterns.
 
 #if FASTLED_VERSION < 3001000
 #warning "Requires FastLED 3.1 or later; check github for latest code."
@@ -17,13 +11,12 @@ FASTLED_USING_NAMESPACE
 
 #define DATA_PIN_LEFT 5
 #define DATA_PIN_RIGHT 6
-//#define CLK_PIN   4
 #define LED_TYPE    WS2811
 #define COLOR_ORDER_LEFT GRB
 #define COLOR_ORDER_RIGHT GRB
 #define NUM_LEDS_LEFT    70
 #define NUM_LEDS_RIGHT   65
-#define NUM_LEDS 140
+#define NUM_LEDS NUM_LEDS_LEFT + NUM_LEDS_RIGHT
 #define PX_PER_BOARD 6
 
 CRGB leds[NUM_LEDS];
@@ -31,6 +24,9 @@ CRGB leds[NUM_LEDS];
 #define BRIGHTNESS          255
 #define FRAMES_PER_SECOND  120
 
+//teensy doesn't compile correctly if we don't declare our functions.
+
+void echoDebugs();
 void ChangePalettePeriodically();
 void FillLEDsFromPaletteColors( uint8_t colorIndex);
 void SetupPurpleAndGreenPalette();
@@ -53,11 +49,15 @@ void ants();
 void randBlocks();
 void all(CRGB all_c);
 void chase();
+void paparockzi();
+void two_chase();
 
 CRGB global_fg = CRGB::Green;
-CRGB global_bg = CRGB::Blue;
+CRGB global_fg2 = CRGB::Red;
+CRGB global_fg3 = CRGB::Blue;
+CRGB global_bg = CRGB::Black;
 CRGB global_length = 6;
-int global_wait = 1000;
+int global_wait = 50;
 
 //TODO = function to receive serial from Pi and update:
 // - global_ colors and parameters above
@@ -85,7 +85,7 @@ void setup() {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { ants, chase, randBlocks, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe, fract };
+SimplePatternList gPatterns = {  two_chase, paparockzi, ants, chase, randBlocks, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe, fract };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -104,58 +104,68 @@ void loop()
         //w = wait
         case 'w':
           global_wait = Serial.parseInt();
-          Serial.print("Updated wait to ");
-          Serial.println(global_wait);
           break;
        //fg = foreground color 
         case 'f':
           global_fg = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
-          Serial.print("Updated fg to ");
-          Serial.println(global_fg);          
           break;
+       //fg2 = foreground color 2
+        case 'g':
+          global_fg2 = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
+          break;          
+       //fg3 = foreground color 3
+        case 'h':
+          global_fg3 = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
+          break;              
         //bg = background color 
         case 'b':
           global_bg = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
-          Serial.print("Updated bg to ");
-          Serial.println(global_bg);          
           break;
         case 'p':
-          Serial.println("Advancing to next pattern");          
           nextPattern();
           break;         
         case 'd':
-          Serial.println("Current values are:");
-          Serial.print("global_wait = ");
-          Serial.println(global_wait); 
-          Serial.print("global_fg = ");
-          Serial.println(global_fg); 
-          Serial.print("global_bg = ");
-          Serial.println(global_bg); 
+          echoDebugs();
           break;
         default:
           Serial.println("Did not understand command");
           break;
       }
-    }
-    
-    //Serial.println(global_wait);
+      echoDebugs();
+    }    
   }
+  
   // Call the current pattern function once, updating the 'leds' array
   gPatterns[gCurrentPatternNumber]();
 
   // send the 'leds' array out to the actual LED strip
   FastLED.show();  
-  
+
+  //this is our global wait between frames
   FastLED.delay(global_wait); 
 
   // do some periodic updates
-  EVERY_N_MILLISECONDS( global_wait) { gw_pod++; if(gw_pod > NUM_LEDS) gw_pod = 0;} //advance the global wait pod with wrap
+  EVERY_N_MILLISECONDS( global_wait) { gw_pod++; if(gw_pod > NUM_LEDS) gw_pod = 0; if(gw_pod < 0) gw_pod = NUM_LEDS;} //advance the global wait pod with wrap
   EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
   EVERY_N_SECONDS( 1 ) { s_pod++; if(s_pod > NUM_LEDS) s_pod = 0;} //used for pod that advances once per second.
-  EVERY_N_SECONDS( 30 ) { nextPattern(); } // change patterns periodically
+  EVERY_N_SECONDS( 90 ) { nextPattern(); } // change patterns periodically
+
 }
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
+
+void echoDebugs()
+{
+  Serial.println("Current values are:");
+  Serial.print("global_wait = ");
+  Serial.println(global_wait); 
+  Serial.print("global_fg = ");
+  Serial.println(global_fg); 
+  Serial.print("global_bg = ");
+  Serial.println(global_bg); 
+  Serial.print("gCurrentPatternNumber = ");
+  Serial.println(gCurrentPatternNumber);  
+}
 
 void nextPattern()
 {
@@ -166,20 +176,22 @@ void nextPattern()
     global_length = random(NUM_LEDS);
     global_wait = random(1000);
   }
-  Serial.println("Current values are:");
-  Serial.print("global_wait = ");
-  Serial.println(global_wait); 
-  Serial.print("global_fg = ");
-  Serial.println(global_fg); 
-  Serial.print("global_bg = ");
-  Serial.println(global_bg); 
   // add one to the current pattern number, and wrap around at the end
-  gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
+  gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE(gPatterns);
 }
+
+//patterns by bob
 
 void chase(){
   all(global_bg);
   leds[findLED(gw_pod)] = global_fg;
+}
+
+void two_chase(){
+  all(global_bg);
+  leds[findLED(gw_pod)] = global_fg;
+  int rev_pod = NUM_LEDS - gw_pod;
+  leds[findLED(rev_pod)] = global_fg2;
 }
 
 void randPods(){
@@ -240,13 +252,26 @@ int findLED(int pos)
 {
   //we want the first half of the ring to be normal, and the second half of the ring to be the distance from the end of the strip.
   //this flips the second half of the ring so that transitions from segment to segment are clean.
-
   //return pos;
   if(pos < NUM_LEDS_LEFT)
+  {
     return pos;
-  
+  }
   return NUM_LEDS - (pos - NUM_LEDS_LEFT);
-  
+}
+
+void paparockzi()
+{
+  all(global_bg);
+  if(s_pod % 2 == 0)
+  {
+    for(int i=0;i<NUM_LEDS/50;i++)
+    {
+      leds[random(NUM_LEDS)] = global_fg;    
+    }
+  }else{
+    fadeToBlackBy( leds, NUM_LEDS, 10);
+  }
 }
 
 void fract()
@@ -293,6 +318,9 @@ void fract_segments(CRGB c1,CRGB c2,int segment_size, int wait)
     wait = wait * .9;        
   }
 }
+
+//end patterns by bob
+//patterns from FastLED demoReel
 
 void rainbow() 
 {
@@ -351,3 +379,4 @@ void juggle() {
   }
 }
 
+//end patterns from FastLED DemoReel
