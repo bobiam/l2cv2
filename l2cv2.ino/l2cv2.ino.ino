@@ -19,6 +19,8 @@ FASTLED_USING_NAMESPACE
 #define NUM_LEDS NUM_LEDS_LEFT + NUM_LEDS_RIGHT
 #define PX_PER_BOARD 6
 
+#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
+
 CRGB leds[NUM_LEDS];
 
 #define BRIGHTNESS          255
@@ -124,6 +126,16 @@ void loop()
         case 'p':
           nextPattern();
           break;         
+        //w = wait
+        case 'q':
+          gCurrentPatternNumber = Serial.parseInt();
+          if(gCurrentPatternNumber > ARRAY_SIZE(gPatterns) || gCurrentPatternNumber < 0)
+          {
+            gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE(gPatterns);
+            Serial.print("Your pattern number was out of range.  Using ");
+            Serial.println(gCurrentPatternNumber);
+          }          
+          break;          
         case 'd':
           echoDebugs();
           break;
@@ -152,7 +164,7 @@ void loop()
 
 }
 
-#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
+
 
 void echoDebugs()
 {
@@ -161,6 +173,10 @@ void echoDebugs()
   Serial.println(global_wait); 
   Serial.print("global_fg = ");
   Serial.println(global_fg); 
+  Serial.print("global_fg2 = ");
+  Serial.println(global_fg2); 
+  Serial.print("global_fg3 = ");
+  Serial.println(global_fg3); 
   Serial.print("global_bg = ");
   Serial.println(global_bg); 
   Serial.print("gCurrentPatternNumber = ");
