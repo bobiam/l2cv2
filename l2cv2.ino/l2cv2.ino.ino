@@ -53,6 +53,7 @@ void all(CRGB all_c);
 void chase();
 void paparockzi();
 void two_chase();
+void handleSerial();
 
 CRGB global_fg = CRGB::Green;
 CRGB global_fg2 = CRGB::Red;
@@ -99,52 +100,7 @@ void loop()
 {
   if(Serial.available())
   {
-    while(Serial.available())
-    {
-      do_what = Serial.read();
-      switch(do_what){
-        //w = wait
-        case 'w':
-          global_wait = Serial.parseInt();
-          break;
-       //fg = foreground color 
-        case 'f':
-          global_fg = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
-          break;
-       //fg2 = foreground color 2
-        case 'g':
-          global_fg2 = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
-          break;          
-       //fg3 = foreground color 3
-        case 'h':
-          global_fg3 = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
-          break;              
-        //bg = background color 
-        case 'b':
-          global_bg = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
-          break;
-        case 'p':
-          nextPattern();
-          break;         
-        //w = wait
-        case 'q':
-          gCurrentPatternNumber = Serial.parseInt();
-          if(gCurrentPatternNumber > ARRAY_SIZE(gPatterns) || gCurrentPatternNumber < 0)
-          {
-            gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE(gPatterns);
-            Serial.print("Your pattern number was out of range.  Using ");
-            Serial.println(gCurrentPatternNumber);
-          }          
-          break;          
-        case 'd':
-          echoDebugs();
-          break;
-        default:
-          Serial.println("Did not understand command");
-          break;
-      }
-      echoDebugs();
-    }    
+    handleSerial();
   }
   
   // Call the current pattern function once, updating the 'leds' array
@@ -164,7 +120,55 @@ void loop()
 
 }
 
-
+void handleSerial()
+{
+  while(Serial.available())
+  {
+    do_what = Serial.read();
+    switch(do_what){
+      //w = wait
+      case 'w':
+        global_wait = Serial.parseInt();
+        break;
+     //fg = foreground color 
+      case 'f':
+        global_fg = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
+        break;
+     //fg2 = foreground color 2
+      case 'g':
+        global_fg2 = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
+        break;          
+     //fg3 = foreground color 3
+      case 'h':
+        global_fg3 = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
+        break;              
+      //bg = background color 
+      case 'b':
+        global_bg = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
+        break;
+      case 'p':
+        nextPattern();
+        break;         
+      //w = wait
+      case 'q':
+        gCurrentPatternNumber = Serial.parseInt();
+        if(gCurrentPatternNumber > ARRAY_SIZE(gPatterns) || gCurrentPatternNumber < 0)
+        {
+          gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE(gPatterns);
+          Serial.print("Your pattern number was out of range.  Using ");
+          Serial.println(gCurrentPatternNumber);
+        }          
+        break;          
+      case 'd':
+        echoDebugs();
+        break;
+      default:
+        Serial.println("Did not understand command");
+        break;
+    }
+    echoDebugs();
+  }    
+}
 
 void echoDebugs()
 {
