@@ -54,13 +54,28 @@ void chase();
 void paparockzi();
 void two_chase();
 void handleSerial();
+void ripple();
+void lightning();
+void one_sine();
+void blendme();
+
+uint8_t global_freq = 16;                                         // You can change the frequency, thus distance between bars.
 
 CRGB global_fg = CRGB::Green;
 CRGB global_fg2 = CRGB::Red;
 CRGB global_fg3 = CRGB::Blue;
 CRGB global_bg = CRGB::Black;
 CRGB global_length = 6;
-int global_wait = 50;
+int global_wait = 15;
+bool global_lock = false;
+
+//for ripple
+uint8_t colour;                                               // Ripple colour is randomized.
+int center = 0;                                               // Center of the current ripple.
+int step = -1;                                                // -1 is the initializing step.
+uint8_t myfade = 255;                                         // Starting brightness.
+#define maxsteps 16                                           // Case statement wouldn't allow a variable.
+
 
 //TODO = function to receive serial from Pi and update:
 // - global_ colors and parameters above
@@ -88,7 +103,7 @@ void setup() {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = {  two_chase, paparockzi, ants, chase, randBlocks, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe, fract };
+SimplePatternList gPatterns = { blendme, one_sine, lightning, ripple, two_chase, paparockzi, ants, chase, randBlocks, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe, fract };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -126,30 +141,36 @@ void handleSerial()
   {
     do_what = Serial.read();
     switch(do_what){
-      //w = wait
-      case 'w':
-        global_wait = Serial.parseInt();
-        break;
-     //fg = foreground color 
-      case 'f':
-        global_fg = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
-        break;
-     //fg2 = foreground color 2
-      case 'g':
-        global_fg2 = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
-        break;          
-     //fg3 = foreground color 3
-      case 'h':
-        global_fg3 = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
-        break;              
-      //bg = background color 
+      //b = background color 
       case 'b':
         global_bg = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
         break;
+      //d = debug 
+      case 'd':
+        echoDebugs();
+        break;
+      //f = foreground color 
+      case 'f':
+        global_fg = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
+        break;
+      //g = foreground color 2
+      case 'g':
+        global_fg2 = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
+        break;          
+      //h = foreground color 3
+      case 'h':
+        global_fg3 = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
+        break;         
+      //l = lock     
+      case 'l':
+        global_lock = ! global_lock;
+        Serial.print("Global lock value now set to ");
+        Serial.println(global_lock);
+      //p = new pattern
       case 'p':
         nextPattern();
         break;         
-      //w = wait
+      //q = specific pattern
       case 'q':
         gCurrentPatternNumber = Serial.parseInt();
         if(gCurrentPatternNumber > ARRAY_SIZE(gPatterns) || gCurrentPatternNumber < 0)
@@ -159,8 +180,13 @@ void handleSerial()
           Serial.println(gCurrentPatternNumber);
         }          
         break;          
-      case 'd':
-        echoDebugs();
+      //r = frequency adjustment (used for one_sine)
+      case 'r':
+        global_freq = Serial.parseInt();
+        break;
+      //w = wait
+      case 'w':
+        global_wait = Serial.parseInt();
         break;
       default:
         Serial.println("Did not understand command");
@@ -189,15 +215,18 @@ void echoDebugs()
 
 void nextPattern()
 {
-  if(random(20) == 1)
+  if(!global_lock)
   {
-    global_fg = CRGB(random(255),random(255),random(255));
-    global_bg = CRGB(random(255),random(255),random(255));
-    global_length = random(NUM_LEDS);
-    global_wait = random(1000);
+    if(random(20) == 1)
+    {
+      global_fg = CRGB(random(255),random(255),random(255));
+      global_bg = CRGB(random(255),random(255),random(255));
+      global_length = random(NUM_LEDS);
+      global_wait = random(1000);
+    }
+    // add one to the current pattern number, and wrap around at the end
+    gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE(gPatterns);
   }
-  // add one to the current pattern number, and wrap around at the end
-  gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE(gPatterns);
 }
 
 //patterns by bob
@@ -290,7 +319,7 @@ void paparockzi()
       leds[random(NUM_LEDS)] = global_fg;    
     }
   }else{
-    fadeToBlackBy( leds, NUM_LEDS, 10);
+    fadeToBlackBy( leds, NUM_LEDS, 1);
   }
 }
 
@@ -340,7 +369,8 @@ void fract_segments(CRGB c1,CRGB c2,int segment_size, int wait)
 }
 
 //end patterns by bob
-//patterns from FastLED demoReel
+
+//patterns from FastLED demoReel by Mark Kriegsman
 
 void rainbow() 
 {
@@ -381,7 +411,7 @@ void sinelon()
 void bpm()
 {
   // colored stripes pulsing at a defined Beats-Per-Minute (BPM)
-  uint8_t BeatsPerMinute = 62;
+  uint8_t BeatsPerMinute = global_wait;
   CRGBPalette16 palette = PartyColors_p;
   uint8_t beat = beatsin8( BeatsPerMinute, 64, 255);
   for( int i = 0; i < NUM_LEDS; i++) { //9948
@@ -400,3 +430,118 @@ void juggle() {
 }
 
 //end patterns from FastLED DemoReel
+
+//patterns from FastLED-Demos by Andrew Tuline
+
+uint8_t bgcol = 0;                                            // Background colour rotates.
+int thisdelay = 100;                                           // Standard delay value.
+
+void ripple() {
+  for (int i = 0; i < NUM_LEDS; i++) leds[findLED(i)] = CHSV(bgcol++, 255, 5);  // Rotate background colour.
+  fadeToBlackBy(leds, NUM_LEDS, 10);
+
+  switch (step) {
+
+    case -1:                                                          // Initialize ripple variables.
+      center = random(NUM_LEDS);
+      colour = random8();
+      step = 0;
+      break;
+
+    case 0:
+      leds[findLED(center)] = CHSV(colour, 255, 255);                          // Display the first pixel of the ripple.
+      step ++;
+      break;
+
+    case maxsteps:                                                    // At the end of the ripples.
+      step = -1;
+      break;
+
+    default:                                                             // Middle of the ripples.
+      leds[findLED((center + step + NUM_LEDS) % NUM_LEDS)] += CHSV(colour, 255, myfade/step*2);       // Simple wrap from Marc Miller
+      leds[findLED((center - step + NUM_LEDS) % NUM_LEDS)] += CHSV(colour, 255, myfade/step*2);
+      step ++;                                                         // Next step.
+      break;  
+  } // switch step
+} // ripple()
+
+//  Lightnings is a program that lets you make an LED strip look like a 1D cloud of lightning
+//  Original by: Daniel Wilson, 2014
+//  Modified by: Andrew Tuline 2015
+//  This modified version creates lightning along various sections of the strip. Looks great inside my poly fill constructed cloud.
+
+uint8_t frequency = 50;                                       // controls the interval between strikes
+uint8_t flashes = 8;                                          //the upper limit of flashes per strike
+unsigned int dimmer = 1;
+
+uint8_t ledstart;                                             // Starting location of a flash
+uint8_t ledlen;                                               // Length of a flash
+
+//  Lightnings is a program that lets you make an LED strip look like a 1D cloud of lightning
+//  Original by: Daniel Wilson, 2014
+//  Modified by: Andrew Tuline 2015
+//  Modified slightly by: Bob Eells 2016
+
+void lightning(){
+  all(CRGB::Black);
+  ledstart = random8(NUM_LEDS);           // Determine starting location of flash
+  ledlen = random8(NUM_LEDS-ledstart);    // Determine length of flash (not to go beyond NUM_LEDS-1)
+  for (int flashCounter = 0; flashCounter < random8(3,flashes); flashCounter++) {
+    if(flashCounter == 0) dimmer = 5;     // the brightness of the leader is scaled down by a factor of 5
+    else dimmer = random8(1,3);           // return strokes are brighter than the leader
+    fill_solid(leds+ledstart,ledlen,CHSV(255, 0, 255/dimmer));
+    FastLED.show();                       // Show a section of LED's
+    delay(random8(4,10));                 // each flash only lasts 4-10 milliseconds
+    fill_solid(leds+ledstart,ledlen,CHSV(255,0,0));   // Clear the section of LED's
+    FastLED.show();     
+    if (flashCounter == 0) delay (150);   // longer delay until next flash after the leader
+    delay(50+random8(100));               // shorter delay between strokes  
+  } // for()
+  delay(random8(frequency)*100);          // delay between strikes
+}
+
+/* one_sine
+By: Andrew Tuline
+Date: Jan, 2015
+This routine uses sine waves to move pixels around. It's much simpler than counting them.
+You COULD add a beat and map the output to the location for it to go back and forth.
+*/
+
+#define qsubd(x, b)  ((x>b)?wavebright:0)                     // Digital unsigned subtraction macro. if result <0, then => 0. Otherwise, take on fixed value.
+#define qsuba(x, b)  ((x>b)?x-b:0)                            // Analog Unsigned subtraction macro. if result <0, then => 0
+// Initialize changeable global variables. Play around with these!!!
+uint8_t wavebright = 128;                                     // You can change the brightness of the waves/bars rolling across the screen.
+uint8_t thishue = 0;                                          // You can change the starting hue value for the first wave.
+uint8_t thisrot = 1;                                          // You can change how quickly the hue rotates for this wave. Currently 0.
+uint8_t allsat = 255;                                         // I like 'em fully saturated with colour.
+int8_t thisspeed = -8;                                         // You can change the speed of the wave, and use negative values.
+int thisphase = 0;                                            // Phase change value gets calculated.
+uint8_t thiscutoff = 192;                                     // You can change the cutoff value to display this wave. Lower value = longer wave.
+uint8_t bgclr = 0;                                            // A rotating background colour.
+uint8_t bgbri = 16;                                           // Brightness of background colour
+
+
+void one_sine() {                                                             // This is the heart of this program. Sure is short.
+  thisphase += thisspeed;                                                     // You can change direction and speed individually.
+  thishue = thishue + thisrot;                                                // Hue rotation is fun for thiswave.
+  for (int k=0; k<NUM_LEDS-1; k++) {                                          // For each of the LED's in the strand, set a brightness based on a wave as follows:
+    int thisbright = qsubd(cubicwave8((k*global_freq)+thisphase), thiscutoff);    // qsub sets a minimum value called thiscutoff. If < thiscutoff, then bright = 0. Otherwise, bright = 128 (as defined in qsub)..
+    leds[k] = CHSV(bgclr, 255, bgbri);                                        // First set a background colour, but fully saturated.
+    leds[k] += CHSV(thishue, allsat, thisbright);                             // Then assign a hue to any that are bright enough.
+  }
+  bgclr++;                                                                    // You can change the background colour or remove this and leave it fixed.
+} // one_sine()
+
+/*From  fill_grad
+By: Andrew Tuline
+Date: August, 2015*/
+
+void blendme() {
+  uint8_t starthue = beatsin8(20, 0, 255);
+  uint8_t endhue = beatsin8(35, 0, 255);
+  if (starthue < endhue) {
+    fill_gradient(leds, NUM_LEDS, CHSV(starthue,255,255), CHSV(endhue,255,255), FORWARD_HUES);    // If we don't have this, the colour fill will flip around
+  } else {
+    fill_gradient(leds, NUM_LEDS, CHSV(starthue,255,255), CHSV(endhue,255,255), BACKWARD_HUES);
+  }
+} // blendme()
