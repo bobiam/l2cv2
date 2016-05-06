@@ -2,8 +2,12 @@
 
 FASTLED_USING_NAMESPACE
 
-// developed for use with L2Cv2 for Maker Faire 2016.
-// with many thanks to Mark Kriegsman's demoreel 100 which provided the basic concepts and some of the initial patterns.
+// developed for use with L2Cv2 for Maker Faire 2016 by Bob Eells
+// with many thanks to Mark Kriegsman's demoreel 100 which provided the basic concepts and some of the initial patterns. ( See http://fastled.io/ )
+// and to Andrew Tuline (http://tuline.com/) and Daniel Wilson, 
+// and to my co-conspirators on this project, notably Bruce, Alex and Jeremy. 
+// Portions of this code are shared under GPL by the above authors...other pieces are shared under Creative Commons.  
+// Any section not marked as belonging to another programmer can be assumed "CC BY".  The world needs more blinky lights.  Go make it go.  
 
 #if FASTLED_VERSION < 3001000
 #warning "Requires FastLED 3.1 or later; check github for latest code."
@@ -23,7 +27,6 @@ FASTLED_USING_NAMESPACE
 
 CRGB leds[NUM_LEDS];
 
-#define BRIGHTNESS          255
 #define FRAMES_PER_SECOND  120
 
 //teensy doesn't compile correctly if we don't declare our functions.
@@ -58,6 +61,7 @@ void ripple();
 void lightning();
 void one_sine();
 void blendme();
+void averageFade();
 
 uint8_t global_freq = 16;                                         // You can change the frequency, thus distance between bars.
 
@@ -65,8 +69,9 @@ CRGB global_fg = CRGB::Green;
 CRGB global_fg2 = CRGB::Red;
 CRGB global_fg3 = CRGB::Blue;
 CRGB global_bg = CRGB::Black;
-CRGB global_length = 6;
+int global_span = 5;
 int global_wait = 15;
+int global_bright = 255;
 bool global_lock = false;
 
 //for ripple
@@ -95,7 +100,7 @@ void setup() {
   //FastLED.addLeds<LED_TYPE,DATA_PIN,CLK_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
 
   // set master brightness control
-  FastLED.setBrightness(BRIGHTNESS);
+  FastLED.setBrightness(global_bright);
 
   randomSeed(analogRead(0));
 }
@@ -103,7 +108,6 @@ void setup() {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { blendme, one_sine, lightning, ripple, two_chase, paparockzi, ants, chase, randBlocks, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe, fract };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -141,6 +145,11 @@ void handleSerial()
   {
     do_what = Serial.read();
     switch(do_what){
+      //a = max_brightness
+      case 'a':
+        global_bright = Serial.parseInt();
+        FastLED.setBrightness(global_bright);
+        break;
       //b = background color 
       case 'b':
         global_bg = CRGB(Serial.parseInt(),Serial.parseInt(),Serial.parseInt());
@@ -185,6 +194,9 @@ void handleSerial()
         global_freq = Serial.parseInt();
         break;
       //w = wait
+      case 's':
+        global_span = Serial.parseInt();
+        break;
       case 'w':
         global_wait = Serial.parseInt();
         break;
@@ -199,14 +211,16 @@ void handleSerial()
 void echoDebugs()
 {
   Serial.println("Current values are:");
+  Serial.print("global_bright = ");
+  Serial.println(global_bright);
   Serial.print("global_wait = ");
   Serial.println(global_wait); 
+  Serial.print("global_span  = ");
+  Serial.println(global_span);   
   Serial.print("global_fg = ");
   Serial.println(global_fg); 
   Serial.print("global_fg2 = ");
   Serial.println(global_fg2); 
-  Serial.print("global_fg3 = ");
-  Serial.println(global_fg3); 
   Serial.print("global_bg = ");
   Serial.println(global_bg); 
   Serial.print("gCurrentPatternNumber = ");
@@ -221,7 +235,7 @@ void nextPattern()
     {
       global_fg = CRGB(random(255),random(255),random(255));
       global_bg = CRGB(random(255),random(255),random(255));
-      global_length = random(NUM_LEDS);
+      global_fg2 = CRGB(random(255),random(255),random(255));      
       global_wait = random(1000);
     }
     // add one to the current pattern number, and wrap around at the end
@@ -545,3 +559,47 @@ void blendme() {
     fill_gradient(leds, NUM_LEDS, CHSV(starthue,255,255), CHSV(endhue,255,255), BACKWARD_HUES);
   }
 } // blendme()
+
+// patterns by Bruce
+
+void averageFade() {
+  int i,j,k,rs,gs,bs;
+  CRGB returnVals[NUM_LEDS];
+  // average node values with a slight negative bias for liquid fade
+  // rs, gs, bs are sigmas across the averaged span
+  // span must be odd otherwise it's asymmmetrical and weird things happen
+  // yes, it's RGB, you HSV fans, can play with HSV later when there's more time
+  for (j=0;j<NUM_LEDS;j++) {
+    rs=0; gs=0; bs=0;
+    for (k=j-global_span/2;k<(j+global_span/2)+1;k++) {
+      if ((k>=0)&&(k<NUM_LEDS)) {
+        rs+=leds[k].r; rs-=1; if(rs<0) rs=0;
+        gs+=leds[k].g; gs-=1; if(gs<0) gs=0;
+        bs+=leds[k].b; bs-=1; if(bs<0) bs=0;
+      } else {
+        rs+=leds[j].r; rs-=1; if(rs<0) rs=0;
+        gs+=leds[j].g; gs-=1; if(gs<0) gs=0;
+        bs+=leds[j].b; bs-=1; if(bs<0) bs=0;
+      }
+    }
+    // now getting sigma/n for each channel
+    // have to write to a buffer because it's not safe to tinker with leds[] yet
+    returnVals[j].r=rs/global_span;
+    returnVals[j].g=gs/global_span;
+    returnVals[j].b=bs/global_span;
+  }
+  // completed the averaging, now it's safe to dump the results into leds[]
+  for (j=0;j<NUM_LEDS;j++) {
+    leds[j]=returnVals[j];
+  }
+  // and finally, a zombie door gated random node value set
+  if (random(100)>30) {
+    i = random(NUM_LEDS-1); // because zero indexed :p
+    leds[i].r=random(255);
+    leds[i].g=random(255);
+    leds[i].b=random(255);
+  }
+  FastLED.show();
+}
+
+// end patterns by Bruce
