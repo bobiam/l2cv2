@@ -18,8 +18,8 @@ FASTLED_USING_NAMESPACE
 #define LED_TYPE    WS2811
 #define COLOR_ORDER_LEFT GRB
 #define COLOR_ORDER_RIGHT GRB
-#define NUM_LEDS_LEFT    70
-#define NUM_LEDS_RIGHT   65
+#define NUM_LEDS_LEFT    82
+#define NUM_LEDS_RIGHT   0
 #define NUM_LEDS NUM_LEDS_LEFT + NUM_LEDS_RIGHT
 #define PX_PER_BOARD 6
 
@@ -108,6 +108,7 @@ void setup() {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
+SimplePatternList gPatterns = {  blendme, one_sine, lightning, ripple, two_chase, paparockzi, ants, chase, randBlocks, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe, averageFade };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -234,8 +235,8 @@ void nextPattern()
     if(random(20) == 1)
     {
       global_fg = CRGB(random(255),random(255),random(255));
-      global_bg = CRGB(random(255),random(255),random(255));
       global_fg2 = CRGB(random(255),random(255),random(255));      
+      global_bg = CRGB(random(255),random(255),random(255));
       global_wait = random(1000);
     }
     // add one to the current pattern number, and wrap around at the end
