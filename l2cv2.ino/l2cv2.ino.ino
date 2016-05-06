@@ -70,6 +70,7 @@ CRGB global_fg2 = CRGB::Red;
 CRGB global_fg3 = CRGB::Blue;
 CRGB global_bg = CRGB::Black;
 int global_span = 5;
+int global_gate = 30;
 int global_wait = 15;
 int global_bright = 255;
 bool global_lock = false;
@@ -197,6 +198,9 @@ void handleSerial()
       //w = wait
       case 's':
         global_span = Serial.parseInt();
+        break;
+      case 't':
+        global_gate = Serial.parseInt();
         break;
       case 'w':
         global_wait = Serial.parseInt();
@@ -594,7 +598,7 @@ void averageFade() {
     leds[j]=returnVals[j];
   }
   // and finally, a zombie door gated random node value set
-  if (random(100)>30) {
+  if (random(100)>global_gate) {
     i = random(NUM_LEDS-1); // because zero indexed :p
     leds[i].r=random(255);
     leds[i].g=random(255);
