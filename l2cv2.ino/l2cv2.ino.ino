@@ -18,8 +18,8 @@ FASTLED_USING_NAMESPACE
 #define LED_TYPE    WS2811
 #define COLOR_ORDER_LEFT GRB
 #define COLOR_ORDER_RIGHT GRB
-#define NUM_LEDS_LEFT    82
-#define NUM_LEDS_RIGHT   0
+#define NUM_LEDS_LEFT    65
+#define NUM_LEDS_RIGHT   70
 #define NUM_LEDS NUM_LEDS_LEFT + NUM_LEDS_RIGHT
 #define PX_PER_BOARD 6
 
@@ -60,8 +60,10 @@ void handleSerial();
 void ripple();
 void lightning();
 void one_sine();
+void lightLED();
 void blendme();
 void averageFade();
+void debug_boundary_conditions();
 
 uint8_t global_freq = 16;                                         // You can change the frequency, thus distance between bars.
 
@@ -72,7 +74,8 @@ CRGB global_bg = CRGB::Black;
 int global_span = 5;
 int global_gate = 30;
 int global_wait = 15;
-int global_bright = 255;
+int global_bright = 50;
+int global_pos = 0;
 bool global_lock = false;
 
 //for ripple
@@ -94,6 +97,24 @@ uint8_t myfade = 255;                                         // Starting bright
 void setup() {
   Serial.begin(9600);
   delay(3000); // 3 second delay for recovery
+
+  Serial.println("L2Cv2 is starting up.");
+  
+  Serial.print("Configured for left hand side on pin ");
+  Serial.print(DATA_PIN_LEFT);
+  Serial.print(" of ");
+  Serial.print(NUM_LEDS_LEFT);  
+  Serial.println(" leds");
+  
+  Serial.print("Configured for right hand side on pin ");
+  Serial.print(DATA_PIN_RIGHT);
+  Serial.print(" of ");
+  Serial.print(NUM_LEDS_RIGHT);  
+  Serial.println(" leds");  
+
+  Serial.print("Total LEDS is: ");
+  Serial.println(NUM_LEDS);
+ 
   
   // tell FastLED about the LED strip configuration
   FastLED.addLeds<LED_TYPE,DATA_PIN_LEFT,COLOR_ORDER_LEFT>(leds, NUM_LEDS_LEFT).setCorrection(TypicalLEDStrip);
@@ -109,7 +130,7 @@ void setup() {
 
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = {  blendme, one_sine, lightning, ripple, two_chase, paparockzi, ants, chase, randBlocks, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe, averageFade };
+SimplePatternList gPatterns = {  one_sine, chase, wipe, debug_boundary_conditions, blendme, one_sine, lightning, ripple, two_chase, paparockzi, ants, chase, randBlocks, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, wipe, averageFade };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -132,9 +153,13 @@ void loop()
 
   //this is our global wait between frames
   FastLED.delay(global_wait); 
-
+  gw_pod++; 
+  if(gw_pod >= NUM_LEDS) 
+    gw_pod = 0; 
+  if(gw_pod < 0) 
+    gw_pod = NUM_LEDS;
+  
   // do some periodic updates
-  EVERY_N_MILLISECONDS( global_wait) { gw_pod++; if(gw_pod > NUM_LEDS) gw_pod = 0; if(gw_pod < 0) gw_pod = NUM_LEDS;} //advance the global wait pod with wrap
   EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
   EVERY_N_SECONDS( 1 ) { s_pod++; if(s_pod > NUM_LEDS) s_pod = 0;} //used for pod that advances once per second.
   EVERY_N_SECONDS( 90 ) { nextPattern(); } // change patterns periodically
@@ -177,6 +202,11 @@ void handleSerial()
         global_lock = ! global_lock;
         Serial.print("Global lock value now set to ");
         Serial.println(global_lock);
+        break;
+      //m = light specific pod
+      case 'm':
+        global_pos = Serial.parseInt();
+        break;
       //p = new pattern
       case 'p':
         nextPattern();
@@ -211,6 +241,25 @@ void handleSerial()
     }
     echoDebugs();
   }    
+}
+
+//good for counting pods or debugging edge cases.
+void debug_boundary_conditions(){
+  bool swit = false;
+  CRGB c;
+  for(int i=0;i<NUM_LEDS;i++){
+    if(i%10 == 0)
+    {
+      swit = !swit;
+    }
+    if(swit){
+      c = CRGB::Blue;    
+    }else{
+      c = CRGB::Red;
+    }
+    leds[findLED(i)] = c;
+    FastLED.show();
+  }
 }
 
 void echoDebugs()
@@ -278,10 +327,9 @@ void randBlocks(){
 
 void wipe()
 {
-  for(int x=0;x<gw_pod;x++)
-  {
-    leds[findLED(x)] = global_bg;
-  }
+  if(gw_pod == 0)
+    all(global_bg);
+    Serial.println(findLED(gw_pod));    
   leds[findLED(gw_pod)] = global_fg;
 }
 
@@ -316,16 +364,25 @@ void ants(){
   }
 }
 
+void lightLED()
+{
+  all(global_bg);
+  leds[findLED(global_pos)] = global_fg;
+  delay(1000);
+}
+
 int findLED(int pos)
 {
   //we want the first half of the ring to be normal, and the second half of the ring to be the distance from the end of the strip.
   //this flips the second half of the ring so that transitions from segment to segment are clean.
   //return pos;
-  if(pos < NUM_LEDS_LEFT)
+  int new_pos;
+  if(pos < (NUM_LEDS_LEFT))
   {
     return pos;
   }
-  return NUM_LEDS - (pos - NUM_LEDS_LEFT);
+  new_pos = NUM_LEDS  - (pos - NUM_LEDS_LEFT) - 1;
+  return new_pos;
 }
 
 void paparockzi()
@@ -416,7 +473,7 @@ void confetti()
   // random colored speckles that blink in and fade smoothly
   fadeToBlackBy( leds, NUM_LEDS, 10);
   int pos = random16(NUM_LEDS);
-  leds[pos] += CHSV( gHue + random8(64), 200, 255);
+  leds[findLED(pos)] += CHSV( gHue + random8(64), 200, 255);
 }
 
 void sinelon()
@@ -424,7 +481,7 @@ void sinelon()
   // a colored dot sweeping back and forth, with fading trails
   fadeToBlackBy( leds, NUM_LEDS, 20);
   int pos = beatsin16(13,0,NUM_LEDS);
-  leds[pos] += CHSV( gHue, 255, 192);
+  leds[findLED(pos)] += CHSV( gHue, 255, 192);
 }
 
 void bpm()
@@ -434,7 +491,7 @@ void bpm()
   CRGBPalette16 palette = PartyColors_p;
   uint8_t beat = beatsin8( BeatsPerMinute, 64, 255);
   for( int i = 0; i < NUM_LEDS; i++) { //9948
-    leds[i] = ColorFromPalette(palette, gHue+(i*2), beat-gHue+(i*10));
+    leds[findLED(i)] = ColorFromPalette(palette, gHue+(i*2), beat-gHue+(i*10));
   }
 }
 
@@ -443,7 +500,7 @@ void juggle() {
   fadeToBlackBy( leds, NUM_LEDS, 20);
   byte dothue = 0;
   for( int i = 0; i < 8; i++) {
-    leds[beatsin16(i+7,0,NUM_LEDS)] |= CHSV(dothue, 200, 255);
+    leds[findLED(beatsin16(i+7,0,NUM_LEDS))] |= CHSV(dothue, 200, 255);
     dothue += 32;
   }
 }
@@ -543,10 +600,10 @@ uint8_t bgbri = 16;                                           // Brightness of b
 void one_sine() {                                                             // This is the heart of this program. Sure is short.
   thisphase += thisspeed;                                                     // You can change direction and speed individually.
   thishue = thishue + thisrot;                                                // Hue rotation is fun for thiswave.
-  for (int k=0; k<NUM_LEDS-1; k++) {                                          // For each of the LED's in the strand, set a brightness based on a wave as follows:
+  for (int k=0; k<NUM_LEDS+1; k++) {                                          // For each of the LED's in the strand, set a brightness based on a wave as follows:
     int thisbright = qsubd(cubicwave8((k*global_freq)+thisphase), thiscutoff);    // qsub sets a minimum value called thiscutoff. If < thiscutoff, then bright = 0. Otherwise, bright = 128 (as defined in qsub)..
-    leds[k] = CHSV(bgclr, 255, bgbri);                                        // First set a background colour, but fully saturated.
-    leds[k] += CHSV(thishue, allsat, thisbright);                             // Then assign a hue to any that are bright enough.
+    leds[findLED(k)] = CHSV(bgclr, 255, bgbri);                                        // First set a background colour, but fully saturated.
+    leds[findLED(k)] += CHSV(thishue, allsat, thisbright);                             // Then assign a hue to any that are bright enough.
   }
   bgclr++;                                                                    // You can change the background colour or remove this and leave it fixed.
 } // one_sine()
