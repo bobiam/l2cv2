@@ -132,6 +132,7 @@ void setup() {
 // List of patterns to cycle through.  Each is defined as a separate function below.
 typedef void (*SimplePatternList[])();
 SimplePatternList gPatterns = {  chase, wipe, blendme, one_sine, lightning, ripple, two_chase, paparockzi, ants, randBlocks, randPods, confetti, sinelon, juggle, bpm, rainbow, rainbowWithGlitter, averageFade, omgp };
+char* patternNames[] = {"chase","wipe", "blendme", "one_sine", "lightning", "ripple", "two_chase", "paparockzi", "ants", "randBlocks", "randPods", "confetti", "sinelon", "juggle", "bpm", "rainbow", "rainbowWithGlitter", "averageFade", "omgp" };
 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
@@ -433,6 +434,7 @@ void fract_segments(CRGB c1,CRGB c2,int segment_size, int wait)
 }
 
 //omgp - oh my god, Ponies!
+//Pattern 18
 //runs a rainbow chase
 //no globals.
 void omgp()
@@ -467,27 +469,9 @@ void omgp()
 
 //patterns from FastLED demoReel by Mark Kriegsman
 
-void rainbow() 
-{
-  // FastLED's built-in rainbow generator
-  //behaves strangely thanks to lack of findLED() wrapper in fill_rainbow;
-  fill_rainbow( leds, NUM_LEDS, gHue, 7);
-}
-
-void rainbowWithGlitter() 
-{
-  // built-in FastLED rainbow, plus some random sparkly glitter
-  rainbow();
-  addGlitter(80);
-}
-
-void addGlitter( fract8 chanceOfGlitter) 
-{
-  if( random8() < chanceOfGlitter) {
-    leds[ random16(NUM_LEDS) ] += CRGB::White;
-  }
-}
-
+//confetti
+//Pattern 11
+//no globals
 void confetti() 
 {
   // random colored speckles that blink in and fade smoothly
@@ -496,6 +480,9 @@ void confetti()
   leds[findLED(pos)] += CHSV( gHue + random8(64), 200, 255);
 }
 
+//sinelon 
+//Pattern 12
+//no globals
 void sinelon()
 {
   // a colored dot sweeping back and forth, with fading trails
@@ -504,6 +491,9 @@ void sinelon()
   leds[findLED(pos)] += CHSV( gHue, 255, 192);
 }
 
+//bpm
+//Pattern 13
+//no globals
 void bpm()
 {
   // colored stripes pulsing at a defined Beats-Per-Minute (BPM)
@@ -515,6 +505,9 @@ void bpm()
   }
 }
 
+//juggle
+//Pattern 14
+//no globals
 void juggle() {
   // eight colored dots, weaving in and out of sync with each other
   fadeToBlackBy( leds, NUM_LEDS, 20);
@@ -522,6 +515,34 @@ void juggle() {
   for( int i = 0; i < 8; i++) {
     leds[findLED(beatsin16(i+7,0,NUM_LEDS))] |= CHSV(dothue, 200, 255);
     dothue += 32;
+  }
+}
+
+//rainbow
+//Pattern 15
+//no globals
+void rainbow() 
+{
+  // FastLED's built-in rainbow generator
+  //behaves strangely thanks to lack of findLED() wrapper in fill_rainbow;
+  fill_rainbow( leds, NUM_LEDS, gHue, 7);
+}
+
+//rainbowWithGlitter
+//pattern 16
+//no globals
+void rainbowWithGlitter() 
+{
+  // built-in FastLED rainbow, plus some random sparkly glitter
+  rainbow();
+  addGlitter(80);
+}
+
+//helper only
+void addGlitter( fract8 chanceOfGlitter) 
+{
+  if( random8() < chanceOfGlitter) {
+    leds[ random16(NUM_LEDS) ] += CRGB::White;
   }
 }
 
@@ -740,5 +761,9 @@ void nextPattern()
     }
     // add one to the current pattern number, and wrap around at the end
     gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE(gPatterns);
+    Serial.print("Advancing to pattern ");
+    Serial.println(patternNames[gCurrentPatternNumber]);    
+  }else{
+    Serial.println("Cannot advance to next pattern, pattern is currently locked.  Send l to unlock");
   }
 }
