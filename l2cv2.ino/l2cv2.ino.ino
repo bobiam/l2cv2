@@ -752,6 +752,7 @@ void nextPattern()
 {
   if(!global_lock)
   {
+    /* disabling this while we build out code.  We will turn it back on for unattended ring, but it's causing problems in development.
     if(random(20) == 1)
     {
       global_fg = CRGB(random(255),random(255),random(255));
@@ -759,6 +760,7 @@ void nextPattern()
       global_bg = CRGB(random(255),random(255),random(255));
       global_wait = random(1000);
     }
+    */
     // add one to the current pattern number, and wrap around at the end
     gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE(gPatterns);
     Serial.print("Advancing to pattern ");
