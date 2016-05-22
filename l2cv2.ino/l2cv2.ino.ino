@@ -13,8 +13,8 @@ FASTLED_USING_NAMESPACE
 #warning "Requires FastLED 3.1 or later; check github for latest code."
 #endif
 
-#define DATA_PIN_LEFT 5
-#define DATA_PIN_RIGHT 6
+#define DATA_PIN_LEFT 6
+#define DATA_PIN_RIGHT 5
 #define LED_TYPE    WS2811
 #define COLOR_ORDER_LEFT GRB
 #define COLOR_ORDER_RIGHT GRB
@@ -64,6 +64,7 @@ void lightLED();
 void blendme();
 void averageFade();
 void omgp();
+void SomeoneIsInTheTower();
 void debug_boundary_conditions();
 
 uint8_t global_freq = 16;                                         // You can change the frequency, thus distance between bars.
@@ -97,6 +98,7 @@ uint8_t myfade = 255;                                         // Starting bright
 
 void setup() {
   Serial.begin(9600);
+  Serial.setTimeout(20);
   delay(3000); // 3 second delay for recovery
 
   Serial.println("L2Cv2 is starting up.");
@@ -138,6 +140,7 @@ uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 int gw_pod = 0;
 int s_pod = 0;
+int tower_pod = 0;
 char do_what;
   
 void loop()
@@ -237,6 +240,10 @@ void handleSerial()
       case 'w':
         global_wait = Serial.parseInt();
         break;
+      case 'z':
+        tower_pod = Serial.parseInt();
+        SomeoneIsInTheTower();
+        break;
       default:
         Serial.println("Did not understand command");
         break;
@@ -290,6 +297,18 @@ void echoDebugs()
 
 
 //patterns by bob
+
+//SomeoneIsInTheTower
+//responds to the z Serial char. Draws a pixel.
+void SomeoneIsInTheTower()
+{
+  fadeToBlackBy( leds, NUM_LEDS, 1);
+  leds[findLED(tower_pod)] = global_fg;
+  Serial.print("I set tower_pod at ");
+  Serial.println(tower_pod);
+  FastLED.show();
+  delay(500);
+}
 
 //chase 
 //pattern 0
