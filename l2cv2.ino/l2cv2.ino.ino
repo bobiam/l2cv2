@@ -16,10 +16,10 @@ FASTLED_USING_NAMESPACE
 #define DATA_PIN_LEFT 6
 #define DATA_PIN_RIGHT 5
 #define LED_TYPE    WS2811
-#define COLOR_ORDER_LEFT GRB
-#define COLOR_ORDER_RIGHT GRB
-#define NUM_LEDS_LEFT    65
-#define NUM_LEDS_RIGHT   70
+#define COLOR_ORDER_LEFT RBG
+#define COLOR_ORDER_RIGHT RBG
+#define NUM_LEDS_LEFT    192 
+#define NUM_LEDS_RIGHT   192
 #define NUM_LEDS NUM_LEDS_LEFT + NUM_LEDS_RIGHT
 #define PX_PER_BOARD 6
 
@@ -117,7 +117,6 @@ void setup() {
 
   Serial.print("Total LEDS is: ");
   Serial.println(NUM_LEDS);
- 
   
   // tell FastLED about the LED strip configuration
   FastLED.addLeds<LED_TYPE,DATA_PIN_LEFT,COLOR_ORDER_LEFT>(leds, NUM_LEDS_LEFT).setCorrection(TypicalLEDStrip);
@@ -126,6 +125,22 @@ void setup() {
 
   // set master brightness control
   FastLED.setBrightness(global_bright);
+
+  all(CRGB::White);
+  FastLED.show();
+  delay(3000);  
+  all(CRGB::Red);
+  FastLED.show();
+  delay(1000);
+  all(CRGB::Green);
+  FastLED.show();
+  delay(1000);
+  all(CRGB::Blue);
+  FastLED.show();
+  delay(1000);  
+  all(CRGB::White);
+  FastLED.show();
+  delay(3000);  
 
   randomSeed(analogRead(0));
 }
@@ -329,6 +344,8 @@ void two_chase(){
   int rev_pod = NUM_LEDS - gw_pod;
   leds[findLED(rev_pod)] = global_fg2;
 }
+
+
 
 //randPods
 //Pattern 10
