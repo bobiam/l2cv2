@@ -1,8 +1,9 @@
 Our project involves two WS2811 strips in an unorthodox configuration from a hardware standpoint, but it's pretty simple in software.
 
-These serial controls will be exposed for web-enabled devices via a pi webserver.
+These serial controls will be exposed for web-enabled devices via a pi webserver.  The webserver UI is over here:
+https://github.com/bobiam/l2cv2-ui
 
-Controls via serial monitor in Arduino:
+Some of the common commands.  The rest can be found in handleSerial()
 
 Send:
 	b [byte] [byte] [byte]
