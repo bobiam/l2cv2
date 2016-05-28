@@ -18,8 +18,8 @@ FASTLED_USING_NAMESPACE
 #define LED_TYPE    WS2811
 #define COLOR_ORDER_LEFT RBG
 #define COLOR_ORDER_RIGHT RBG
-#define NUM_LEDS_LEFT    192 
-#define NUM_LEDS_RIGHT   192
+#define NUM_LEDS_LEFT    180
+#define NUM_LEDS_RIGHT   180
 #define NUM_LEDS NUM_LEDS_LEFT + NUM_LEDS_RIGHT
 #define PX_PER_BOARD 6
 
@@ -76,7 +76,7 @@ CRGB global_bg = CRGB::Black;
 int global_span = 5;
 int global_gate = 30;
 int global_wait = 15;
-int global_bright = 50;
+int global_bright = 255;
 int global_pos = 0;
 bool global_lock = false;
 
@@ -788,15 +788,13 @@ void nextPattern()
 {
   if(!global_lock)
   {
-    /* disabling this while we build out code.  We will turn it back on for unattended ring, but it's causing problems in development.
     if(random(20) == 1)
     {
       global_fg = CRGB(random(255),random(255),random(255));
       global_fg2 = CRGB(random(255),random(255),random(255));      
       global_bg = CRGB(random(255),random(255),random(255));
-      global_wait = random(1000);
+      global_wait = random(250);
     }
-    */
     // add one to the current pattern number, and wrap around at the end
     gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE(gPatterns);
     Serial.print("Advancing to pattern ");
